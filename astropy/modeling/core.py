@@ -3219,6 +3219,31 @@ class CompoundModel(Model):
             return outputs[0]
         return outputs
 
+    def _calculate_separability_matrix(self):
+        """Calculate the separability matrix for this compound model."""
+        from .separable import _separable
+        if self.op == '&':
+            # For & operator, we create a block diagonal matrix to maintain separability
+            left_matrix = _separable(self.left)
+            right_matrix = _separable(self.right)
+            
+            # Create zero matrices to pad the block diagonal
+            left_pad = np.zeros((left_matrix.shape[0], right_matrix.shape[1]))
+            right_pad = np.zeros((right_matrix.shape[0], left_matrix.shape[1]))
+            
+            # Create block diagonal matrix by stacking horizontally and vertically
+            top = np.hstack([left_matrix, left_pad])
+            bottom = np.hstack([right_pad, right_matrix])
+            return np.vstack([top, bottom])
+        elif self.op == '|':
+            # For | operator, we use matrix multiplication since operations are chained
+            left_matrix = _separable(self.left)
+            right_matrix = _separable(self.right)
+            return np.dot(right_matrix, left_matrix)
+        else:
+            # For other operators, return NotImplemented to use default behavior
+            return NotImplemented
+
     def _evaluate(self, *args, **kw):
         op = self.op
         if op != 'fix_inputs':
