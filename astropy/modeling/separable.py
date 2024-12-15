@@ -199,7 +199,15 @@ def _coord_matrix(model, pos, noutp):
         else:
             mat[-model.n_outputs:, -model.n_inputs:] = m
         return mat
-    if not model.separable:
+    # If the model is a compound model, recursively get its separability matrix
+    if isinstance(model, CompoundModel):
+        sep_matrix = separability_matrix(model)
+        mat = np.zeros((noutp, model.n_inputs))
+        if pos == 'left':
+            mat[:model.n_outputs, :model.n_inputs] = sep_matrix
+        else:
+            mat[-model.n_outputs:, -model.n_inputs:] = sep_matrix
+    elif not model.separable:
         # this does not work for more than 2 coordinates
         mat = np.zeros((noutp, model.n_inputs))
         if pos == 'left':
@@ -208,7 +216,6 @@ def _coord_matrix(model, pos, noutp):
             mat[-model.n_outputs:, -model.n_inputs:] = 1
     else:
         mat = np.zeros((noutp, model.n_inputs))
-
         for i in range(model.n_inputs):
             mat[i, i] = 1
         if pos == 'right':
