@@ -199,7 +199,27 @@ def _coord_matrix(model, pos, noutp):
         else:
             mat[-model.n_outputs:, -model.n_inputs:] = m
         return mat
-    if not model.separable:
+    if isinstance(model, CompoundModel):
+        # Handle compound models recursively
+        left = model.left
+        right = model.right
+        n_left = left.n_outputs
+        n_right = right.n_outputs
+        n_total = n_left + n_right
+        
+        # Recursively get matrices for left and right components
+        left_mat = _coord_matrix(left, 'left', n_total)
+        right_mat = _coord_matrix(right, 'right', n_total)
+        
+        # Combine the matrices
+        mat = np.zeros((noutp, model.n_inputs))
+        
+        if pos == 'left':
+            mat[:model.n_outputs, :model.n_inputs] = np.hstack([left_mat, right_mat])
+        else:
+            mat[-model.n_outputs:, -model.n_inputs:] = np.hstack([left_mat, right_mat])
+        return mat
+    elif not model.separable:
         # this does not work for more than 2 coordinates
         mat = np.zeros((noutp, model.n_inputs))
         if pos == 'left':
