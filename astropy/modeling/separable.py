@@ -80,11 +80,36 @@ def separability_matrix(transform):
         independent outputs, the diagonal elements are True and
         off-diagonal elements are False.
 
+        For nested compound models using the '&' operator, each level
+        of nesting is treated as a single unit from the perspective of
+        its parent. This means that if you have a nested model like
+        ``A & (B & C)``, the inner ``(B & C)`` is treated as one unit
+        when computing its relationship with ``A``, even though ``B``
+        and ``C`` might be internally separable.
+
     Examples
     --------
-    >>> from astropy.modeling.models import Shift, Scale, Rotation2D, Polynomial2D
-    >>> separability_matrix(Shift(1) & Shift(2) | Scale(1) & Scale(2))
+    >>> from astropy.modeling.models import Shift, Scale, Rotation2D, Polynomial2D, Linear1D
+    >>> # Simple compound model - each component is independent
+    >>> separability_matrix(Linear1D(10) & Linear1D(5))
         array([[ True, False], [False,  True]]...)
+    
+    >>> # Complex model - each component is treated independently
+    >>> separability_matrix(Pix2Sky_TAN() & Linear1D(10) & Linear1D(5))
+        array([[ True,  True, False, False],
+               [ True,  True, False, False],
+               [False, False,  True, False],
+               [False, False, False,  True]]...)
+    
+    >>> # Nested model - inner compound model is treated as a unit
+    >>> cm = Linear1D(10) & Linear1D(5)
+    >>> separability_matrix(Pix2Sky_TAN() & cm)
+        array([[ True,  True, False, False],
+               [ True,  True, False, False],
+               [False, False,  True,  True],
+               [False, False,  True,  True]]...)
+    
+    >>> # Other examples with different operators
     >>> separability_matrix(Shift(1) & Shift(2) | Rotation2D(2))
         array([[ True,  True], [ True,  True]]...)
     >>> separability_matrix(Shift(1) & Shift(2) | Mapping([0, 1, 0, 1]) | \
