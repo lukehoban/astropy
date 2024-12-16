@@ -186,7 +186,17 @@ def _coord_matrix(model, pos, noutp):
         is a left or right child.
 
     """
-    if isinstance(model, Mapping):
+    if isinstance(model, CompoundModel):
+        # For compound models, recursively compute the separability
+        mat = _separable(model)
+        if pos == 'left':
+            result = np.zeros((noutp, model.n_inputs))
+            result[:mat.shape[0], :mat.shape[1]] = mat
+        else:
+            result = np.zeros((noutp, model.n_inputs))
+            result[-mat.shape[0]:, -mat.shape[1]:] = mat
+        return result
+    elif isinstance(model, Mapping):
         axes = []
         for i in model.mapping:
             axis = np.zeros((model.n_inputs,))
