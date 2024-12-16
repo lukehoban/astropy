@@ -199,6 +199,17 @@ def _coord_matrix(model, pos, noutp):
         else:
             mat[-model.n_outputs:, -model.n_inputs:] = m
         return mat
+    
+    if isinstance(model, CompoundModel):
+        # For compound models, recursively compute separability
+        sep_matrix = separability_matrix(model)
+        mat = np.zeros((noutp, model.n_inputs))
+        if pos == 'left':
+            mat[:model.n_outputs, :model.n_inputs] = sep_matrix
+        else:
+            mat[-model.n_outputs:, -model.n_inputs:] = sep_matrix
+        return mat
+        
     if not model.separable:
         # this does not work for more than 2 coordinates
         mat = np.zeros((noutp, model.n_inputs))
@@ -233,18 +244,39 @@ def _cstack(left, right):
     """
     noutp = _compute_n_outputs(left, right)
 
+    # Handle left side
     if isinstance(left, Model):
-        cleft = _coord_matrix(left, 'left', noutp)
+        cleft = _separable(left) if isinstance(left, CompoundModel) else _coord_matrix(left, 'left', left.n_outputs)
+        shape = (noutp, left.n_inputs)
     else:
-        cleft = np.zeros((noutp, left.shape[1]))
-        cleft[: left.shape[0], : left.shape[1]] = left
-    if isinstance(right, Model):
-        cright = _coord_matrix(right, 'right', noutp)
-    else:
-        cright = np.zeros((noutp, right.shape[1]))
-        cright[-right.shape[0]:, -right.shape[1]:] = 1
+        cleft = left
+        shape = (noutp, left.shape[1])
 
-    return np.hstack([cleft, cright])
+    # Handle right side
+    if isinstance(right, Model):
+        cright = _separable(right) if isinstance(right, CompoundModel) else _coord_matrix(right, 'right', right.n_outputs)
+        rshape = (noutp, right.n_inputs)
+    else:
+        cright = right
+        rshape = (noutp, right.shape[1])
+        
+    # Create zero matrices for stacking
+    mat_left = np.zeros(shape)
+    mat_right = np.zeros(rshape)
+    
+    # Position the left matrix
+    if isinstance(left, Model):
+        mat_left[:left.n_outputs, :] = cleft
+    else:
+        mat_left[: left.shape[0], : left.shape[1]] = left
+        
+    # Position the right matrix
+    if isinstance(right, Model):
+        mat_right[-right.n_outputs:, :] = cright
+    else:
+        mat_right[-right.shape[0]:, -right.shape[1]:] = right
+    
+    return np.hstack([mat_left, mat_right])
 
 
 def _cdot(left, right):
@@ -304,9 +336,16 @@ def _separable(transform):
     if (transform_matrix := transform._calculate_separability_matrix()) is not NotImplemented:
         return transform_matrix
     elif isinstance(transform, CompoundModel):
-        sepleft = _separable(transform.left)
-        sepright = _separable(transform.right)
-        return _operators[transform.op](sepleft, sepright)
+        # For compound models, recursively calculate separability of components
+        if transform.op == '&':
+            # For stacking operation, each component maintains its own separability
+            sepleft = _separable(transform.left)
+            sepright = _separable(transform.right)
+            return _operators[transform.op](sepleft, sepright)
+        else:
+            # For other operations (e.g. |), treat as non-separable
+            transform.separable = False
+            return _coord_matrix(transform, 'left', transform.n_outputs)
     elif isinstance(transform, Model):
         return _coord_matrix(transform, 'left', transform.n_outputs)
 
