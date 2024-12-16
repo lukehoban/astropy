@@ -234,12 +234,23 @@ def _cstack(left, right):
     noutp = _compute_n_outputs(left, right)
 
     if isinstance(left, Model):
-        cleft = _coord_matrix(left, 'left', noutp)
+        if isinstance(left, CompoundModel) and left.op == '&':
+            cleft = _cstack(left.left, left.right)
+        else:
+            cleft = _coord_matrix(left, 'left', noutp)
     else:
         cleft = np.zeros((noutp, left.shape[1]))
         cleft[: left.shape[0], : left.shape[1]] = left
+
     if isinstance(right, Model):
-        cright = _coord_matrix(right, 'right', noutp)
+        if isinstance(right, CompoundModel) and right.op == '&':
+            cright = _cstack(right.left, right.right)
+            # We need to adjust the right matrix to handle the proper output positions
+            cright_adjusted = np.zeros((noutp, cright.shape[1]))
+            cright_adjusted[-right.n_outputs:, :] = cright[-right.n_outputs:, :]
+            cright = cright_adjusted
+        else:
+            cright = _coord_matrix(right, 'right', noutp)
     else:
         cright = np.zeros((noutp, right.shape[1]))
         cright[-right.shape[0]:, -right.shape[1]:] = 1
