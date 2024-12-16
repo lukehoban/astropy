@@ -199,7 +199,15 @@ def _coord_matrix(model, pos, noutp):
         else:
             mat[-model.n_outputs:, -model.n_inputs:] = m
         return mat
-    if not model.separable:
+    if isinstance(model, CompoundModel):
+        # Handle nested compound models by recursively computing their separability
+        sep_matrix = _separable(model)
+        mat = np.zeros((noutp, model.n_inputs))
+        if pos == 'left':
+            mat[:model.n_outputs, :model.n_inputs] = sep_matrix
+        else:
+            mat[-model.n_outputs:, -model.n_inputs:] = sep_matrix
+    elif not model.separable:
         # this does not work for more than 2 coordinates
         mat = np.zeros((noutp, model.n_inputs))
         if pos == 'left':
@@ -233,16 +241,30 @@ def _cstack(left, right):
     """
     noutp = _compute_n_outputs(left, right)
 
-    if isinstance(left, Model):
-        cleft = _coord_matrix(left, 'left', noutp)
-    else:
-        cleft = np.zeros((noutp, left.shape[1]))
-        cleft[: left.shape[0], : left.shape[1]] = left
-    if isinstance(right, Model):
-        cright = _coord_matrix(right, 'right', noutp)
-    else:
-        cright = np.zeros((noutp, right.shape[1]))
-        cright[-right.shape[0]:, -right.shape[1]:] = 1
+    def _handle_model_or_array(model_or_array, position):
+        if isinstance(model_or_array, Model):
+            if isinstance(model_or_array, CompoundModel) and model_or_array.op == '&':
+                # For nested CompoundModels with &, compute separability recursively
+                sep_matrix = _separable(model_or_array)
+                mat = np.zeros((noutp, model_or_array.n_inputs))
+                if position == 'left':
+                    mat[:model_or_array.n_outputs, :model_or_array.n_inputs] = sep_matrix
+                else:
+                    mat[-model_or_array.n_outputs:, -model_or_array.n_inputs:] = sep_matrix
+                return mat
+            else:
+                return _coord_matrix(model_or_array, position, noutp)
+        else:
+            # Handle array case
+            mat = np.zeros((noutp, model_or_array.shape[1]))
+            if position == 'left':
+                mat[:model_or_array.shape[0], :model_or_array.shape[1]] = model_or_array
+            else:
+                mat[-model_or_array.shape[0]:, -model_or_array.shape[1]:] = model_or_array
+            return mat
+
+    cleft = _handle_model_or_array(left, 'left')
+    cright = _handle_model_or_array(right, 'right')
 
     return np.hstack([cleft, cright])
 
