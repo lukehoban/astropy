@@ -238,11 +238,20 @@ def _cstack(left, right):
     else:
         cleft = np.zeros((noutp, left.shape[1]))
         cleft[: left.shape[0], : left.shape[1]] = left
+
     if isinstance(right, Model):
-        cright = _coord_matrix(right, 'right', noutp)
+        if isinstance(right, CompoundModel):
+            # For compound models, use their separability matrix directly
+            cright = _separable(right)
+            # Pad with zeros to match dimensions
+            new_cright = np.zeros((noutp, right.n_inputs))
+            new_cright[-right.n_outputs:, -right.n_inputs:] = cright
+            cright = new_cright
+        else:
+            cright = _coord_matrix(right, 'right', noutp)
     else:
         cright = np.zeros((noutp, right.shape[1]))
-        cright[-right.shape[0]:, -right.shape[1]:] = 1
+        cright[-right.shape[0]:, -right.shape[1]:] = right
 
     return np.hstack([cleft, cright])
 
