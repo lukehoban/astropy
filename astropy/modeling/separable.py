@@ -186,6 +186,20 @@ def _coord_matrix(model, pos, noutp):
         is a left or right child.
 
     """
+    # First handle CompoundModels by recursively calculating their separability matrix
+    if isinstance(model, CompoundModel):
+        # Calculate the separability matrix for this compound model
+        sep_matrix = _separable(model)
+        # Create output matrix
+        mat = np.zeros((noutp, model.n_inputs))
+        # Place the separability matrix in the correct position
+        if pos == 'left':
+            mat[:model.n_outputs, :model.n_inputs] = sep_matrix
+        else:
+            mat[-model.n_outputs:, -model.n_inputs:] = sep_matrix
+        return mat
+
+    # Handle Mapping models
     if isinstance(model, Mapping):
         axes = []
         for i in model.mapping:
@@ -199,6 +213,8 @@ def _coord_matrix(model, pos, noutp):
         else:
             mat[-model.n_outputs:, -model.n_inputs:] = m
         return mat
+
+    # Handle non-separable models
     if not model.separable:
         # this does not work for more than 2 coordinates
         mat = np.zeros((noutp, model.n_inputs))
@@ -207,8 +223,8 @@ def _coord_matrix(model, pos, noutp):
         else:
             mat[-model.n_outputs:, -model.n_inputs:] = 1
     else:
+        # Handle separable models
         mat = np.zeros((noutp, model.n_inputs))
-
         for i in range(model.n_inputs):
             mat[i, i] = 1
         if pos == 'right':
