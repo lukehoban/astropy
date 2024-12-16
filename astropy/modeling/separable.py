@@ -199,6 +199,17 @@ def _coord_matrix(model, pos, noutp):
         else:
             mat[-model.n_outputs:, -model.n_inputs:] = m
         return mat
+        
+    if isinstance(model, CompoundModel) and model.op == '&':
+        # For nested compound models with & operator, recursively get the separability matrix
+        sub_matrix = _separable(model)
+        mat = np.zeros((noutp, model.n_inputs))
+        if pos == 'left':
+            mat[:model.n_outputs, :model.n_inputs] = sub_matrix
+        else:
+            mat[-model.n_outputs:, -model.n_inputs:] = sub_matrix
+        return mat
+        
     if not model.separable:
         # this does not work for more than 2 coordinates
         mat = np.zeros((noutp, model.n_inputs))
