@@ -135,6 +135,22 @@ def test_separable(compound_model, result):
     assert_allclose(separability_matrix(compound_model), result[1])
 
 
+def test_nested_compound_model_separable():
+    # Test nested compound models
+    cm = models.Linear1D(10) & models.Linear1D(5)
+    # Test that the basic compound model is separable
+    assert_allclose(separability_matrix(cm),
+                    np.array([[True, False],
+                             [False, True]]))
+
+    # Test that nesting preserves separability
+    nested = models.Pix2Sky_TAN() & cm
+    assert_allclose(separability_matrix(nested),
+                    np.array([[True, True, False, False],
+                             [True, True, False, False],
+                             [False, False, True, False],
+                             [False, False, False, True]]))
+
 def test_custom_model_separable():
     @custom_model
     def model_a(x):
