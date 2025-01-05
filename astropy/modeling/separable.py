@@ -244,6 +244,7 @@ def _cstack(left, right):
     else:
         cleft = np.zeros((noutp, left.shape[1]))
         cleft[: left.shape[0], : left.shape[1]] = left
+
     if isinstance(right, Model):
         if isinstance(right, CompoundModel):
             # For compound models, get their separability matrix directly
@@ -256,6 +257,11 @@ def _cstack(left, right):
     else:
         cright = np.zeros((noutp, right.shape[1]))
         cright[-right.shape[0]:, -right.shape[1]:] = right
+
+    # Each output should only depend on its corresponding input
+    result = np.zeros((noutp, left.n_inputs + right.n_inputs), dtype=bool)
+    result[:left.n_outputs, :left.n_inputs] = cleft[:left.n_outputs, :left.n_inputs]
+    result[-right.n_outputs:, -right.n_inputs:] = cright[-right.n_outputs:, -right.n_inputs:]
 
     # Combine matrices ensuring no cross-dependencies
     result = np.hstack([cleft, cright])
