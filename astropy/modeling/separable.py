@@ -234,17 +234,38 @@ def _cstack(left, right):
     noutp = _compute_n_outputs(left, right)
 
     if isinstance(left, Model):
-        cleft = _coord_matrix(left, 'left', noutp)
+        if isinstance(left, CompoundModel):
+            # For compound models, get their separability matrix directly
+            cleft = np.zeros((noutp, left.n_inputs))
+            left_matrix = separability_matrix(left)
+            cleft[: left.n_outputs, : left.n_inputs] = left_matrix
+        else:
+            cleft = _coord_matrix(left, 'left', noutp)
     else:
         cleft = np.zeros((noutp, left.shape[1]))
         cleft[: left.shape[0], : left.shape[1]] = left
+
     if isinstance(right, Model):
-        cright = _coord_matrix(right, 'right', noutp)
+        if isinstance(right, CompoundModel):
+            # For compound models, get their separability matrix directly
+            cright = np.zeros((noutp, right.n_inputs))
+            right_matrix = separability_matrix(right)
+            # Ensure proper positioning of the right matrix
+            cright[-right.n_outputs:, -right.n_inputs:] = right_matrix
+        else:
+            cright = _coord_matrix(right, 'right', noutp)
     else:
         cright = np.zeros((noutp, right.shape[1]))
-        cright[-right.shape[0]:, -right.shape[1]:] = 1
+        cright[-right.shape[0]:, -right.shape[1]:] = right
 
-    return np.hstack([cleft, cright])
+    # Each output should only depend on its corresponding input
+    result = np.zeros((noutp, left.n_inputs + right.n_inputs), dtype=bool)
+    result[:left.n_outputs, :left.n_inputs] = cleft[:left.n_outputs, :left.n_inputs]
+    result[-right.n_outputs:, -right.n_inputs:] = cright[-right.n_outputs:, -right.n_inputs:]
+
+    # Combine matrices ensuring no cross-dependencies
+    result = np.hstack([cleft, cright])
+    return result
 
 
 def _cdot(left, right):
