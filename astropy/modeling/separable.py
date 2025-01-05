@@ -249,6 +249,7 @@ def _cstack(left, right):
             # For compound models, get their separability matrix directly
             cright = np.zeros((noutp, right.n_inputs))
             right_matrix = separability_matrix(right)
+            # Ensure proper positioning of the right matrix
             cright[-right.n_outputs:, -right.n_inputs:] = right_matrix
         else:
             cright = _coord_matrix(right, 'right', noutp)
@@ -256,7 +257,9 @@ def _cstack(left, right):
         cright = np.zeros((noutp, right.shape[1]))
         cright[-right.shape[0]:, -right.shape[1]:] = right
 
-    return np.hstack([cleft, cright])
+    # Combine matrices ensuring no cross-dependencies
+    result = np.hstack([cleft, cright])
+    return result
 
 
 def _cdot(left, right):
