@@ -1,0 +1,1 @@
+Fixed an issue in ``separability_matrix`` that incorrectly computed separability for nested ``CompoundModel`` objects.
